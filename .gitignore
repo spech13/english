@@ -1,4 +1,5 @@
 images/*.png
+!images/no-photo.png
 venv/
 __pycache__/
 english.xlsx
