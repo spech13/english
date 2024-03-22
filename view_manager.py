@@ -6,6 +6,189 @@ from database_manager import DataBaseManager
 import requests
 import shutil
 from random import randint
+import sqlite3
+import os
+
+class DBManager:
+    connection = None
+    cursor = None
+
+    def __init__(self, table_name):
+        self.table_name = table_name
+    
+    def create_table(self):
+        self.cursor.execute(
+            f'''
+            CREATE TABLE IF NOT EXISTS {self.table_name}(
+            id CHAR(36) PRIMARY KEY,
+            word_rus VARCHAR(255) NOT NULL,
+            word_eng VARCHAR(255) NOT NULL,
+            image VARCHAR(255)
+            )
+            '''
+        )
+    
+    def drop_table(self):
+        self.cursor.execute(
+            f"DROP TABLE IF EXISTS {self.table_name}"
+        )
+    
+    def get_table(self):
+        self.connection = sqlite3.connect("database.db")
+        self.cursor = self.connection.cursor()
+    
+    def get_all(self):
+        self.cursor.execute(
+            f"SELECT * FROM {self.table_name}"
+        )
+        return self.cursor.fetchall()
+    
+    def get_by_word(self, word):
+        self.cursor.execute(
+            f"SELECT id, word_rus, word_eng FROM {self.table_name} "
+            "WHERE word_eng=? OR word_rus=?", (word, word)
+        )
+        return self.cursor.fetchall()
+    
+    def delete(self, id):
+        self.cursor.execute(
+            f"DELETE FROM {self.table_name} WHERE id=?", (id,)
+        )
+
+        self.connection.commit()
+
+        file_path = f"images/{id}.png"
+        if os.path.isfile(file_path):
+            os.remove(file_path)
+
+class View(DBManager):
+    form_width = 500
+    form_height = 500
+
+
+class Location:
+    location_x = 15
+    location_y = 15
+
+class Padding:
+    padding_x = 10
+    padding_y = 5
+
+class Button(Location, Padding):
+    button_width = 200
+    button_height = 50
+
+class Entry(Location, Padding):
+    entry_width = 150
+    entry_height = 20
+
+class SearchResultView(View):
+    def __init__(self, text=""):
+        self.form = Tk()
+        self.form.title("Search result")
+        self.form.geometry(f"{self.form_width}x{self.form_height}")
+
+        text_area = Text(
+            self.form,
+            width=self.form_width,
+            height=self.form_height,
+        )
+        text_area.place(x=0, y=0)
+        text_area.insert("1.0", text)
+
+        self.form.mainloop()
+
+class DeleteView(View, Button, Entry):
+    def __init__(self, table_name):
+        self.table_name = table_name
+
+        self.form = Tk()
+        self.form.title(f"Delete {table_name} entity")
+
+        self.search_id_entry = ttk.Entry(self.form, name="search-id")
+        self.delete_entity_entry = ttk.Entry(self.form, name="delete-id")
+
+        self.search_id_button = ttk.Button(
+            self.form,
+            text="Search",
+            command=self.search_word
+        )
+        self.delete_button = ttk.Button(
+            self.form,
+            text="Delete",
+            command=self.delete_word,
+        )
+
+        items = [
+            (self.search_id_entry, self.search_id_button),
+            (self.delete_entity_entry, self.delete_button)
+        ]
+
+        for index, item in enumerate(items):
+            entry, button = item
+
+            entry.place(
+                x=self.location_x,
+                y=self.location_y + index * (self.button_height + self.padding_y) + ((self.button_height - self.entry_height) // 2),
+                width=self.entry_width,
+                height=self.entry_height, 
+            )
+
+            button.place(
+                x = self.location_x + self.entry_width + self.padding_x,
+                y = self.location_y + index * (self.button_height + self.padding_y),
+                width=self.button_width,
+                height=self.button_height,
+            )
+
+        self.get_table()
+
+        self.form_width = 2 * self.location_x + self.button_width + self.entry_width
+        self.form_height = 2*self.location_y + len(items) * (self.button_height + self.padding_y)
+                                                             
+        self.form.geometry(f"{self.form_width}x{self.form_height}")
+        self.form.resizable(False, False)
+
+        self.form.mainloop()
+    
+    def search_word(self):
+        words = self.get_by_word(
+            self.form.children["search-id"].get()
+        )
+
+        SearchResultView("\n".join(
+            [f"{word[0]} : {word[1]} : {word[2]}" for word in words]
+            )
+        )
+    
+    def delete_word(self):
+        self.delete(
+            self.form.children["delete-id"].get()
+        )
+
+class RepeatViewManager:
+    pass
+
+class AddViewManager:
+    pass
+
+class VerbViewManager:
+    pass
+
+class AdjectiveViewManager:
+    pass
+
+class NounViewManager:
+    pass
+
+class StudyViewManager:
+    pass
+
+class SettingsViewManager:
+    pass
+
+class HomeViewManager:
+    pass
 
 class ViewManager:
     active_form = None
@@ -99,7 +282,7 @@ class ViewManager:
 
         self.active_form.mainloop()
     
-    def repeat_form_view(self, title, table_name, word_text, image_path="images/aaa.jpg"):
+    def repeat_form_view(self, title, table_name, word_text, image_path="images/no-photo.jpg"):
         self.active_form.destroy()
 
         self.active_form = Tk()
@@ -120,7 +303,7 @@ class ViewManager:
             ttk.Button(
                 self.active_form,
                 text="Answer",
-                command=getattr(self, f"repeate_{table_name}_form_view")
+                command=getattr(self, f"repeat_{table_name}_form_view")
             ),
             canvas=canvas,
         )
@@ -178,7 +361,7 @@ class ViewManager:
                 },
                 {
                     "name": "Repeat Nouns",
-                    "handler": "repeat_nouns_form_view"
+                    "handler": "repeat_noun_form_view"
                 },
             ]
         )
@@ -329,5 +512,4 @@ class ViewManager:
             self.active_form.children["id"].get()
         )
 
-
-ViewManager().home_form_view()
+DeleteView("Noun")
