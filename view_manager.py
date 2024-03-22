@@ -33,7 +33,7 @@ class DBManager:
             f"DROP TABLE IF EXISTS {self.table_name}"
         )
     
-    def get_table(self):
+    def connect(self):
         self.connection = sqlite3.connect("database.db")
         self.cursor = self.connection.cursor()
     
@@ -141,7 +141,7 @@ class DeleteView(View, Button, Entry):
                 height=self.button_height,
             )
 
-        self.get_table()
+        self.connect()
 
         self.form_width = 2 * self.location_x + self.button_width + self.entry_width
         self.form_height = 2*self.location_y + len(items) * (self.button_height + self.padding_y)
