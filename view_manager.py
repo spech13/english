@@ -84,7 +84,7 @@ class Entry(Location, Padding):
     entry_width = 150
     entry_height = 20
 
-class Photo(Location, Padding):
+class CustomImage(Location, Padding):
     image_width = 300
     image_height = 300
     image_path =None
@@ -169,41 +169,40 @@ class DeleteView(View, Button, Entry):
             self.form.children["delete-id"].get()
         )
 
-class RepeatView(View, Photo, Entry):
+class RepeatView(View, CustomImage, Entry):
     def __init__(self, table_name, word, image_path):
         super().__init__(table_name)
 
         self.image_path = image_path
 
-        self.form = Tk()
         self.form.title(f"Repeat {table_name}")
 
         if not os.path.exists(self.image_path):
             self.image_path = "images/no-photo.png"
 
-        photo = ImageTk.PhotoImage(
-            Image.open(self.image_path).resize(
-                (
-                    self.image_width,
-                    self.image_height,
-                )
-            )
-        )
+        image = Image.open(self.image_path)
+        image.resize((self.image_width, self.image_height))
 
         canvas = Canvas(self.form)
-        canvas.create_image(0, 0, anchor='nw',image=photo)
+        canvas.create_image(
+            0,
+            0,
+            anchor='nw',
+            image=ImageTk.PhotoImage(image)
+        )
 
-        self.word = ttk.Label(text=word)
-        self.result_message = ttk.Label(text="Successful!")
-        self.translation = ttk.Entry(name="translation")
+        self.word = ttk.Label(self.form, text=word)
+        self.result_message = ttk.Label(self.form, text="Successful!")
+        self.translation = ttk.Entry(self.form, name="translation")
 
         canvas.place(
-            x=self.location_x,
-            y=self.location_y,
+            x=15,
+            y=15,
             width=self.image_width,
             height=self.image_height,
         )
-
+        
+        """
         self.word.place(
             x=self.location_x + ((self.image_width - self.word.winfo_width()) // 2),
             y=self.location_y + self.image_height + self.padding_y,
@@ -220,6 +219,8 @@ class RepeatView(View, Photo, Entry):
             width=self.entry_width,
             height=self.entry_height,
         )
+        """
+        self.form.mainloop()
 
 
     def repeat(self):
@@ -570,4 +571,4 @@ class ViewManager:
             self.active_form.children["id"].get()
         )
 
-RepeatView("Noun", "aaa", "fda")
+RepeatView("Noun", "aaa", "ff")
