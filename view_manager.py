@@ -84,10 +84,16 @@ class Entry(Location, Padding):
     entry_width = 150
     entry_height = 20
 
+class Lable:
+    lable_height = 15
+
 class CustomImage(Location, Padding):
     image_width = 300
     image_height = 300
-    image_path =None
+
+    def __init__(self, image_path):
+        self.image_path = image_path
+
 
 class SearchResultView(View):
     def __init__(self, table_name, text=""):
@@ -169,7 +175,7 @@ class DeleteView(View, Button, Entry):
             self.form.children["delete-id"].get()
         )
 
-class RepeatView(View, CustomImage, Entry):
+class RepeatView(View, Lable, CustomImage, Entry, Button):
     def __init__(self, table_name, word, image_path):
         super().__init__(table_name)
 
@@ -177,54 +183,90 @@ class RepeatView(View, CustomImage, Entry):
 
         self.form.title(f"Repeat {table_name}")
 
-        if not os.path.exists(self.image_path):
-            self.image_path = "images/no-photo.png"
+        if not os.path.exists(image_path):
+            image_path = "images/no-photo.png"
 
-        image = Image.open(self.image_path)
-        image.resize((self.image_width, self.image_height))
+        photo = ImageTk.PhotoImage(
+            Image.open(image_path).resize(
+                (
+                    self.image_width,
+                    self.image_height,
+                )
+            )
+        )
 
         canvas = Canvas(self.form)
         canvas.create_image(
-            0,
-            0,
+            0, 0,
             anchor='nw',
-            image=ImageTk.PhotoImage(image)
+            image=photo,
         )
 
         self.word = ttk.Label(self.form, text=word)
         self.result_message = ttk.Label(self.form, text="Successful!")
         self.translation = ttk.Entry(self.form, name="translation")
+        self.answer = ttk.Button(self.form, text="Answer", command=self.repeat)
+
+        items = [canvas, self.word, self.result_message, self.translation]
+
+        for item in items:
+            item.place(x=self.location_x, y=self.location_y)
+        
+        self.form.update()
+        
+        x = self.location_x
+        y = self.location_y
 
         canvas.place(
-            x=15,
-            y=15,
+            x=x, y=y,
             width=self.image_width,
             height=self.image_height,
         )
-        
-        """
-        self.word.place(
-            x=self.location_x + ((self.image_width - self.word.winfo_width()) // 2),
-            y=self.location_y + self.image_height + self.padding_y,
-        )
 
-        self.result_message.place(
-            x=self.location_x + ((self.image_width - self.result_message.winfo_width()) // 2),
-            y=self.location_y + self.word.winfo_height() + self.padding_y,
-        )
+        x = self.location_x + ((self.image_width - self.word.winfo_width()) // 2)
+        y = y + self.image_height + self.padding_y
+
+        self.word.place(x=x, y=y)
+
+        x = self.location_x + ((self.image_width - self.entry_width) // 2) 
+        y = y + self.lable_height + self.result_message.winfo_height() + 2 * self.padding_y
 
         self.translation.place(
-            x=self.location_x + ((self.image_width - self.translation.winfo_width()) // 2),
-            y=self.location_y + self.result_message.winfo_height() + self.padding_y,
+            x=x, y=y,
             width=self.entry_width,
             height=self.entry_height,
         )
-        """
+
+        x = self.location_x + ((self.image_width - self.button_width) // 2)
+        y = y + self.entry_height + self.padding_y 
+
+        self.answer.place(
+            x=x, y=y,
+            width=self.button_width,
+            height=self.button_height,
+        )
+
+        self.hide_result_message()
+
+        form_width = 2 * self.location_x + self.image_width
+        form_height = 2 * self.location_y + y + self.button_height
+
+        self.form.geometry(f"{form_width}x{form_height}")
+
         self.form.mainloop()
 
+    def hide_result_message(self):
+        self.result_message.place_forget()
+    
+    def show_result_message(self):
+        self.form.update()
+        x = self.location_x + ((self.image_width - self.result_message.winfo_width()) // 2)
+        y = self.location_y + self.image_height + self.word.winfo_height() + 2 * self.padding_y
+
+        self.result_message.place(x=x, y=y)
 
     def repeat(self):
-        pass
+        self.show_result_message()
 
 class AddViewManager:
     pass
@@ -571,4 +613,4 @@ class ViewManager:
             self.active_form.children["id"].get()
         )
 
-RepeatView("Noun", "aaa", "ff")
+RepeatView("Noun", "aaa", "fff")
