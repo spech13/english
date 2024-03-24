@@ -1,63 +1,20 @@
-from tkinter import Tk, ttk, Canvas, Text
+from custom import Lable, Button, CustomCanvas, Location, Padding, Entry
+from db_manager import DBManager
 from PIL import Image, ImageTk
+from tkinter import Tk, Text
+from random import randint
 from uuid import uuid4
-from item_block import ButtonBlock, TextBlock, WordBlock, TextButtonBlock
-from database_manager import DataBaseManager
 import requests
 import shutil
-from random import randint
-import sqlite3
 import os
 
-class DBManager:
-    def __init__(self, table_name):
-        self.table_name = table_name
-        self.connection = sqlite3.connect("database.db")
-        self.cursor = self.connection.cursor()
+DEFAULT_IMAGE_PATH = "images/no-photo.png"
 
-        self.cursor.execute(
-            f'''
-            CREATE TABLE IF NOT EXISTS {self.table_name}(
-            id CHAR(36) PRIMARY KEY,
-            word_rus VARCHAR(255) NOT NULL,
-            word_eng VARCHAR(255) NOT NULL,
-            image VARCHAR(255)
-            )
-            '''
-        )
-    
-    def drop_table(self):
-        self.cursor.execute(
-            f"DROP TABLE IF EXISTS {self.table_name}"
-        )
-    
-    def get_all(self):
-        self.cursor.execute(
-            f"SELECT * FROM {self.table_name}"
-        )
-        return self.cursor.fetchall()
-    
-    def get_by_word(self, word):
-        self.cursor.execute(
-            f"SELECT id, word_rus, word_eng FROM {self.table_name} "
-            "WHERE word_eng=? OR word_rus=?", (word, word)
-        )
-        return self.cursor.fetchall()
-    
-    def delete(self, id):
-        self.cursor.execute(
-            f"DELETE FROM {self.table_name} WHERE id=?", (id,)
-        )
-
-        self.connection.commit()
-
-        file_path = f"images/{id}.png"
-        if os.path.isfile(file_path):
-            os.remove(file_path)
-
-class View(DBManager):
-    form_width = 500
-    form_height = 500
+class View(DBManager, Location, Padding):
+    width = 500
+    height = 500
+    internal_padding_x = 15
+    internal_padding_y = 15
 
     form = None
     items = None
@@ -66,35 +23,14 @@ class View(DBManager):
         super().__init__(table_name)
 
         self.form = Tk()
-        self.form.geometry(f"{self.form_width}x{self.form_height}")
+        self.form.geometry(f"{self.width}x{self.height}")
         self.form.resizable(False, False)
-
-class Location:
-    location_x = 15
-    location_y = 15
-
-class Padding:
-    padding_x = 10
-    padding_y = 5
-
-class Button(Location, Padding):
-    button_width = 200
-    button_height = 50
-
-class Entry(Location, Padding):
-    entry_width = 150
-    entry_height = 20
-
-class Lable:
-    lable_height = 15
-
-class CustomImage(Location, Padding):
-    image_width = 300
-    image_height = 300
-
-    def __init__(self, image_path):
-        self.image_path = image_path
-
+    
+    def refresh_view(self):
+        for item in self.form.children.values():
+            item.place(x=self.location_x, y=self.location_y)
+        
+        self.form.update()
 
 class SearchResultView(View):
     def __init__(self, table_name, text=""):
@@ -104,60 +40,58 @@ class SearchResultView(View):
 
         text_area = Text(
             self.form,
-            width=self.form_width,
-            height=self.form_height,
+            width=self.width,
+            height=self.height,
         )
         text_area.place(x=0, y=0)
         text_area.insert("1.0", text)
 
         self.form.mainloop()
 
-class DeleteView(View, Button, Entry):
+class DeleteView(View):
     def __init__(self, table_name):
         super().__init__(table_name)
-
         self.form.title(f"Delete {table_name} entity")
 
-        self.search_id_entry = ttk.Entry(self.form, name="search-id")
-        self.delete_entity_entry = ttk.Entry(self.form, name="delete-id")
-
-        self.search_id_button = ttk.Button(
+        search_id_entry = Entry(self.form, name="search-id")
+        search_id_button = Button(
             self.form,
             text="Search",
             command=self.search_word
         )
-        self.delete_button = ttk.Button(
+
+        delete_entity_entry = Entry(self.form, name="delete-id")
+        delete_button = Button(
             self.form,
             text="Delete",
             command=self.delete_word,
         )
 
         items = [
-            (self.search_id_entry, self.search_id_button),
-            (self.delete_entity_entry, self.delete_button)
+            (search_id_entry, search_id_button),
+            (delete_entity_entry, delete_button)
         ]
 
         for index, item in enumerate(items):
             entry, button = item
 
-            entry.place(
-                x=self.location_x,
-                y=self.location_y + index * (self.button_height + self.padding_y) + ((self.button_height - self.entry_height) // 2),
-                width=self.entry_width,
-                height=self.entry_height, 
+            entry.set_location(
+                self.internal_padding_x,
+                (self.internal_padding_y +
+                 index * (button.height + button.external_padding_y) +
+                 ((button.height - entry.height)) // 2
+                )
             )
 
-            button.place(
-                x = self.location_x + self.entry_width + self.padding_x,
-                y = self.location_y + index * (self.button_height + self.padding_y),
-                width=self.button_width,
-                height=self.button_height,
+            button.set_location(
+                self.internal_padding_x + entry.width + entry.external_padding_x,
+                self.internal_padding_y + index * (button.height + button.external_padding_y)
             )
 
-        self.form_width = 2 * self.location_x + self.button_width + self.entry_width
-        self.form_height = 2 * self.location_y + len(items) * (self.button_height + self.padding_y)
+        self.width = 2 * self.internal_padding_x + search_id_entry.width + search_id_button.width
+        self.height = 2 * self.internal_padding_y + len(items) * (search_id_button.height + search_id_button.external_padding_y)
                                                              
-        self.form.geometry(f"{self.form_width}x{self.form_height}")
+        self.form.geometry(f"{self.width}x{self.height}")
 
         self.form.mainloop()
 
@@ -176,393 +110,165 @@ class DeleteView(View, Button, Entry):
             self.form.children["delete-id"].get()
         )
 
-class RepeatView(View, Lable, CustomImage, Entry, Button):
+class RepeatView(View):
     def __init__(self, table_name, word, image_path):
         super().__init__(table_name)
         self.form.title(f"Repeat {table_name}")
 
+        canvas = CustomCanvas(self.form, name="image")
+
         if not os.path.exists(image_path):
-            image_path = "images/no-photo.png"
+            image_path = DEFAULT_IMAGE_PATH
 
         photo = ImageTk.PhotoImage(
             Image.open(image_path).resize(
-                (self.image_width, self.image_height)
+                (canvas.width, canvas.height)
             )
         )
-        canvas = Canvas(self.form)
-        canvas.create_image(0, 0, anchor='nw', image=photo)
-        word = ttk.Label(self.form, text=word)
-        result = ttk.Label(self.form, text="Successful!", name="result")
-        translation = ttk.Entry(self.form, name="translation", name="answer")
-        answer = ttk.Button(self.form, text="Answer", command=self.repeat)
 
-        items = [canvas, word, result, translation]
+        canvas.create_image(0, 0, anchor="nw", image=photo)
 
-        for item in items:
-            item.place(x=self.location_x, y=self.location_y)
+        word = Lable(self.form, text=word, name="word")
+        failure = Lable(self.form, text="Failure!", name="failure", foreground="red") 
+        translation = Entry(self.form, name="translation")
+        answer = Button(self.form, text="Answer", command=self.repeat)
+        self.refresh_view()
         
-        self.form.update()
+        canvas.set_location(self.internal_padding_x, self.internal_padding_y)
 
-        canvas.place(x=self.location_x, y=self.location_y)
-
-        word.place(
-            x=self.location_x + ((self.image_width - word.winfo_width()) // 2),
-            y=self.location_y + self.image_height + self.padding_y,
+        word.set_location(
+            self.internal_padding_x + ((canvas.width - word.width) // 2),
+            canvas.location_y + canvas.height + canvas.external_padding_y
         )
 
-        translation.place(
-            x=self.location_x + ((self.image_width - self.entry_width) // 2),
-            y=self.location_y + self.image_height + 2 * self.lable_height + 3 * self.padding_y,
-            width=self.entry_width,
-            height=self.entry_height,
+        failure.set_location(
+            self.internal_padding_x + ((canvas.width - failure.width) // 2),
+            word.location_y + word.height + word.external_padding_y,
         )
 
-        answer.place(
-            x=self.location_x + ((self.image_width - self.button_width) // 2),
-            y=self.location_y + self.image_height + 2 * self.lable_height + self.entry_height + 4 * self.padding_y,
-            width=self.button_width,
-            height=self.button_height,
+        translation.set_location(
+            self.internal_padding_x + ((canvas.width - translation.width) // 2),
+            failure.location_y + failure.height + failure.external_padding_y
+        )
+        failure.hidden()
+
+        answer.set_location(
+            self.internal_padding_x + ((canvas.width - answer.width) // 2),
+            translation.location_y + translation.height + translation.external_padding_y
         )
 
-        self.hide_result_message()
+        self.width = 2 * self.internal_padding_x + canvas.width
+        self.height = 2 * self.internal_padding_y + answer.location_y + answer.height
 
-        form_width = 2 * self.location_x + self.image_width
-        form_height = 2 * self.location_y + self.image_height + 2 * self.lable_height + self.entry_height + self.button_height + 5 * self.padding_y
 
-        self.form.geometry(f"{form_width}x{form_height}")
+        self.form.geometry(f"{self.width}x{self.height}")
 
         self.form.mainloop()
 
-    def hide_result_message(self):
-        self.form.children["result"].place_forget()
-    
-    def show_result_message(self):
-        words = self.get_by_word(
-            self.form.children["answer"].get()
-        )
-
-        result = self.form.children["result"]
-        result.place(x=0, y=0)
-        result.configure(text="bb")
-
-        self.form.update()
-        result.place(
-            x=self.location_x + ((self.image_width - result.winfo_width()) // 2),
-            y=self.location_y + self.image_height + self.lable_height + 2 * self.padding_y
-        )
-
     def repeat(self):
-        self.show_result_message()
+        translation = self.form.children["translation"].get().lower()
+        words = self.get_by_word(translation)
 
-class AddViewManager:
-    pass
+        failure = self.form.children["failure"]
 
-class VerbViewManager:
-    pass
+        if translation not in [word[1].lower() for word in words]:
+            failure.visible()
+            return
+        
+        self.form.destroy()
+        words = self.get_all()
+        random_row = randint(0, len(words)-1)
+        RepeatView(self.table_name, words[random_row][2], f"images/{words[random_row][0]}.png")
 
-class AdjectiveViewManager:
-    pass
+class AddView(View):
+    def __init__(self, table_name):
+        super().__init__(table_name)
+        self.form.title(f"Add {table_name}")
 
-class NounViewManager:
-    pass
+        failure = Lable(self.form, text="RUS and ENG must not be empty", name="failure", foreground="red")
 
-class StudyViewManager:
-    pass
+        image_url_lable = Lable(self.form, text="Image URL:")
+        image_url_entry = Entry(self.form, name="image-url")
 
-class SettingsViewManager:
-    pass
+        word_eng_lable = Lable(self.form, text="ENG:")
+        word_eng_entry = Entry(self.form, name="word-eng")
 
-class HomeViewManager:
-    pass
+        word_rus_lable = Lable(self.form, text="RUS:")
+        word_rus_entry = Entry(self.form, name="word-rus")
+        add_button = Button(self.form, text="Add", command=self.add)
+        self.refresh_view()
 
-class ViewManager:
-    active_form = None
-    database_manager = DataBaseManager()
+        failure.set_location(
+            self.internal_padding_x,
+            self.internal_padding_y,
+        )
+        failure.hidden()
 
-    def __init__(self):
-        self.database_manager.init_tables()
-
-    def home_form_view(self):
-        self.active_form = Tk()
-        self.active_form.title("Home")
-        self.active_form.geometry('231x230')
-        self.active_form.resizable(False, False)
-
-        button_block_data = [
-            {
-                "name": "Noun",
-                "handler": "noun_form_view"
-            },
-            {
-                "name": "Adjective",
-                "handler": "adjective_form_view"
-            },
-            {
-                "name": "Verb",
-                "handler": "verb_form_view"
-            },
-            {
-                "name": "Settings",
-                "handler": "settings_form_view" 
-            }
-        ]
-
-        ButtonBlock(
-            [
-                ttk.Button(
-                    self.active_form, text=button_data["name"],
-                    command=getattr(self, button_data["handler"])
-                )
-                for button_data in button_block_data
-            ],
-            location=(15, 15)
+        image_url_lable.set_location(
+            self.internal_padding_x,
+            failure.location_x + failure.height + failure.external_padding_y,
         )
 
-        self.active_form.mainloop()
+        image_url_entry.set_location(
+            self.internal_padding_x + ((add_button.width - word_eng_entry.width) // 2),
+            image_url_lable.location_y + image_url_lable.height + image_url_lable.external_padding_y,
+        )
+
+        word_eng_lable.set_location(
+            self.internal_padding_x,
+            image_url_entry.location_y + image_url_entry.height + image_url_entry.external_padding_y,
+        )
+
+        word_eng_entry.set_location(
+            self.internal_padding_x + ((add_button.width - word_eng_entry.width) // 2),
+            word_eng_lable.location_y + word_eng_lable.height + word_eng_lable.external_padding_y,
+        )
+
+        word_rus_lable.set_location(
+            self.internal_padding_x,
+            word_eng_entry.location_y + word_eng_entry.height + word_eng_entry.external_padding_y,
+        )
+
+        word_rus_entry.set_location(
+            self.internal_padding_x + ((add_button.width - word_eng_entry.width) // 2),
+            word_rus_lable.location_y + word_rus_lable.height + word_rus_lable.external_padding_y,
+        )
+
+        add_button.set_location(
+            self.internal_padding_x,
+            word_rus_entry.location_y + word_rus_entry.height + word_rus_entry.external_padding_y
+        )
+
+        self.width = 2 * self.internal_padding_x + add_button.width
+        self.height = 2 * self.internal_padding_y + add_button.location_y + add_button.height
+
+        self.form.geometry(f"{self.width}x{self.height}")
+
+        self.form.mainloop()
     
-    def form_view(self, title, button_block_data):
-        self.active_form.destroy()
+    def validate(self):
+        validate = True
 
-        self.active_form = Tk()
-        self.active_form.title(title)
-        self.active_form.geometry(
-            f"230x{len(button_block_data) * ButtonBlock.item_height + 30}"
-        )
-        self.active_form.resizable(False, False)
+        if self.form.children["word-rus"].get() == "":
+            validate = False
 
-        ButtonBlock(
-            [
-                ttk.Button(
-                    self.active_form, text=button_data["name"],
-                    command=getattr(self, button_data["handler"])
-                )
-                for button_data in button_block_data
-            ],
-            location=(15, 15)
-        )
+        if self.form.children["word-eng"].get() == "":
+            validate = False
+        
+        if not validate:
+            self.form.children["failure"].visible()
 
-        self.active_form.mainloop()
+        return validate   
     
-    def add_form_view(self, title):
-        self.active_form.destroy()
+    def add(self):
+        if not self.validate():
+            return
+        
+        self.form.children["failure"].hidden()
 
-        self.active_form = Tk()
-        self.active_form.title(title)
-        self.active_form.geometry('231x215')
-        self.active_form.resizable(False, False)
-
-        text_block = TextBlock(
-            [
-                ttk.Entry(self.active_form, name="image"),
-                ttk.Entry(self.active_form, name="word_eng"),
-                ttk.Entry(self.active_form, name="word_rus")
-            ],
-            location=(40, 15),
-            button=ttk.Button(self.active_form, text="Save", command=self.save_word)
-            
-        )
-        text_block.set_lables(
-            ttk.Label(self.active_form, text=name) for name in ["Image URL", "Word ENG", "Word RUS"] 
-        )
-
-        self.active_form.mainloop()
-    
-    def repeat_form_view(self, title, table_name, word_text, image_path):
-        self.active_form.destroy()
-
-        self.active_form = Tk()
-        self.active_form.title(title)
-        self.active_form.geometry("500x500")
-
-        if not os.path.exists(image_path):
-            image_path = "images/no-photo.png"
-
-        photo = ImageTk.PhotoImage(
-            Image.open(image_path).resize((300,300,))
-        )
-
-        canvas = Canvas(self.active_form)
-        canvas.create_image(0, 0, anchor='nw',image=photo)
-
-        WordBlock(
-            ttk.Label(self.active_form, text=word_text),
-            ttk.Entry(self.active_form),
-            ttk.Button(
-                self.active_form,
-                text="Answer",
-                command=getattr(self, f"repeat_{table_name}_form_view")
-            ),
-            canvas=canvas,
-        )
-
-        self.active_form.mainloop()
-    
-    def settings_delete_form_view(self, title, text_button_block_data):
-        self.active_form.destroy()
-
-        self.active_form = Tk()
-        self.active_form.title(title)
-        self.active_form.geometry(
-            f"390x{30 + len(text_button_block_data) * 55}"
-        )
-
-        TextButtonBlock(
-            [
-                (
-                    ttk.Entry(self.active_form, name=text_button["text_box"]["name"]),
-                    ttk.Button(
-                        self.active_form,
-                        text=text_button["button"]["name"],
-                        command=getattr(self, text_button["button"]["handler"])
-                    )
-                )
-                for text_button in text_button_block_data
-            ],
-            location=(15,15)
-        )
-
-        self.active_form.mainloop()
-    
-    def settings_show_form_view(self, title, lines):
-        form = Tk()
-        form.title(title)
-        form.geometry(
-            f"350x{30 + 20 * len(lines)}"
-        )
-
-        text_area = Text(form, width=350, height=30 + 20 * len(lines))
-        text_area.place(x=0, y=0)
-        text_area.insert("1.0", "\n".join(lines))
-
-        self.active_form.mainloop()
-
-
-
-    def noun_form_view(self):
-        self.form_view(
-            "Noun",
-            [
-                {
-                    "name": "Add Nouns",
-                    "handler": "add_nouns_form_view"
-                },
-                {
-                    "name": "Repeat Nouns",
-                    "handler": "repeat_noun_form_view"
-                },
-            ]
-        )
-    
-    def adjective_form_view(self):
-        self.form_view(
-            "Adjective",
-            [
-                {
-                    "name": "Add Adjective",
-                    "handler": "add_adjective_form_view"
-                },
-                {
-                    "name": "Repeat Nouns",
-                    "handler": "repeat_adjective_form_view"
-                },
-            ]
-        )
-
-    def verb_form_view(self):
-        self.form_view(
-            "Verb",
-            [
-                {
-                    "name": "Add Verb",
-                    "handler": "add_verb_form_view"
-                },
-                {
-                    "name": "Repeat Verb",
-                    "handler": "repeat_verb_form_view"
-                },
-            ]
-        )
-    
-    def settings_form_view(self):
-        self.form_view(
-            "Settings",
-            [
-                {
-                    "name": "Noun",
-                    "handler": "noun_settings_form_view"
-                },
-                {
-                    "name": "Adjective",
-                    "handler": "adjective_settings_form_view"
-                },
-                {
-                    "name": "Verb",
-                    "handler": "verb_settings_form_view"
-                }
-            ]
-        )
-
-    def add_nouns_form_view(self):
-        self.add_form_view("Add Nouns")
-    
-    def add_adjective_form_view(self):
-        self.add_form_view("Add Adjective")
-    
-    def add_verb_form_view(self):
-        self.add_form_view("Add Verb")
-
-    def repeat_noun_form_view(self):
-        data = self.database_manager.get_all_entities("Noun")
-        random_row = data[randint(0, len(data))-1]
-
-        self.repeat_form_view(
-            "Repeat nouns",
-            "noun",
-            random_row[2],
-            image_path=random_row[3])
-
-    def repeat_adjective_form_view(self):
-        self.repeat_form_view("Repeat adjectives", "Programmer")
-
-    def repeat_verb_form_view(self):
-        self.repeat_form_view("Repeat verbs", "Programmer")
-    
-    def noun_settings_form_view(self):
-        self.form_view(
-            "Noun Settings",
-            [
-                {
-                    "name":"Delete noun",
-                    "handler": "delete_noun_view"
-                }
-            ]
-        )
-
-    def adjective_settings_form_view(self):
-        pass
-
-    def verb_settings_form_view(self):
-        pass
-
-    def delete_noun_view(self):
-        self.settings_delete_form_view(
-            "Delete noun by word-eng",
-            [
-                {
-                    "text_box": {"name": "word"},
-                    "button": {"name": "Show ids", "handler": "show_ids"},
-                },
-                {
-                    "text_box": {"name": "id"},
-                    "button": {"name": "Delete", "handler": "delete_noun"}
-                },
-            ],
-        )
-    
-    def save_word(self):
         id = str(uuid4())
-        image_path = None
-        image_url = self.active_form.children["image"].get()
+        image_url = self.form.children["image-url"].get()
+        image_path = DEFAULT_IMAGE_PATH
 
         if image_url != "":
             response = requests.get(image_url, stream=True)
@@ -571,32 +277,124 @@ class ViewManager:
                 with open(image_path, 'wb') as out_file:
                     shutil.copyfileobj(response.raw, out_file)
 
-        self.database_manager.insert(
-            "Noun",
-            self.active_form.children["word_rus"].get(),
-            self.active_form.children["word_eng"].get(),
-            id=id,
-            image_path=image_path,
-        )
-    
-    def show_ids(self):
-        word = self.active_form.children["word"].get()
-
-        data = self.database_manager.get_ids_by_word(
-            "Noun", word
-        )
-        self.settings_show_form_view(
-            "Show ids",
-            [
-                f"{entity[0]} : {entity[1]} : {entity[2]}"
-                for entity in data
-            ]
-        )
-    
-    def delete_noun(self):
-        self.database_manager.delete_entity(
-            "Noun",
-            self.active_form.children["id"].get()
+        self.insert(
+            id,
+            self.form.children["word-rus"].get(),
+            self.form.children["word-eng"].get(),
+            image_path,
         )
 
-RepeatView("Noun", "aaa", "fff")
+class StudyView(View):
+    def __init__(self, table_name):
+        super().__init__(table_name)
+        self.form.title(f"Study {table_name}")
+
+        add_button = Button(self.form, text=f"Add {table_name}", command=self.add)
+        repeat_button = Button(self.form, text=f"Repeat {table_name}", command=self.repeat)
+        settings_button = Button(self.form, text=f"Settings {table_name}", command=self.settings)
+
+        add_button.set_location(
+            self.internal_padding_x,
+            self.internal_padding_y,
+        )
+
+        repeat_button.set_location(
+            self.internal_padding_x,
+            add_button.location_y + add_button.height + add_button.external_padding_y,
+        )
+
+        settings_button.set_location(
+            self.internal_padding_x,
+            repeat_button.location_y + repeat_button.height + repeat_button.external_padding_y,
+        )
+
+        self.width = 2 * self.internal_padding_x + settings_button.width
+        self.height = 2 * self.internal_padding_y + settings_button.location_y + settings_button.height
+
+        self.form.geometry(f"{self.width}x{self.height}")
+
+        self.form.mainloop()
+    
+    def add(self):
+        self.form.destroy()
+        AddView(self.table_name)
+    
+    def repeat(self):
+        self.form.destroy()
+        words = self.get_all()
+        random_row = randint(0, len(words)-1)
+        RepeatView(self.table_name, words[random_row][2], f"images/{words[random_row][0]}.png")
+    
+    def settings(self):
+        self.form.destroy()
+        SettingsView(self.table_name)
+
+class SettingsView(View):
+    def __init__(self, table_name):
+        super().__init__(table_name)
+        self.form.title(f"Settings {table_name}")
+
+        delete_button = Button(self.form, text=f"Delete {table_name}", command=self.delete)
+        delete_button.set_location(
+            self.internal_padding_x,
+            self.internal_padding_y,
+        )
+
+        self.width = 2 * self.internal_padding_x + delete_button.width
+        self.height = 2 * self.internal_padding_y + delete_button.location_y + delete_button.height
+
+        self.form.geometry(f"{self.width}x{self.height}")
+
+        self.form.mainloop()
+    
+    def delete(self):
+        self.form.destroy()
+        DeleteView(self.table_name)
+
+class HomeView(View):
+    def __init__(self):
+        self.form = Tk()
+        self.form.resizable(False, False)
+        self.form.title("Home")
+
+        noun_button = Button(self.form, text="Noun", command=self.noun)
+        adjective_button = Button(self.form, text="Adjective", command=self.adjective)
+        verb_button = Button(self.form, text="Verb", command=self.verb)
+
+        noun_button.set_location(
+            self.internal_padding_x,
+            self.internal_padding_y,
+        )
+
+        adjective_button.set_location(
+            self.internal_padding_x,
+            noun_button.location_y + noun_button.height + noun_button.external_padding_y,
+        )
+
+        verb_button.set_location(
+            self.internal_padding_y,
+            adjective_button.location_y + adjective_button.height + adjective_button.external_padding_y,
+        )
+
+        self.width = 2 * self.internal_padding_x + verb_button.width
+        self.height = 2 * self.internal_padding_y + verb_button.location_y + verb_button.height
+
+        self.form.geometry(f"{self.width}x{self.height}")
+
+        self.form.mainloop()
+    
+    def noun(self):
+        self.form.destroy()
+        StudyView("Noun")
+    
+    def adjective(self):
+        self.form.destroy()
+        StudyView("Adjective")
+    
+    def verb(self):
+        self.form.destroy()
+        StudyView("Verb")
+
+HomeView()
+
+
