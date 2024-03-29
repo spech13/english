@@ -2,4 +2,5 @@ images/*.png
 !images/no-photo.png
 venv/
 __pycache__/
+database.db
 english.xlsx

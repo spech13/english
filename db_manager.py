@@ -29,6 +29,13 @@ class DBManager:
         )
         return self.cursor.fetchall()
     
+    def get_by_id(self, id):
+        self.cursor.execute(
+            f"SELECT word_rus, word_eng, image FROM {self.table_name} "
+            "WHERE id=?", (id,)
+        )
+        return self.cursor.fetchall()
+    
     def get_by_word(self, word):
         self.cursor.execute(
             f"SELECT id, word_rus, word_eng FROM {self.table_name} "
@@ -62,3 +69,12 @@ class DBManager:
         file_path = f"images/{id}.png"
         if os.path.isfile(file_path):
             os.remove(file_path)
+    
+    def update(self, id, word_rus, word_eng, image_path):
+        image_path = image_path if image_path != "" else "NULL"
+        
+        self.cursor.execute(
+            f"UPDATE {self.table_name} SET word_rus=?, word_eng=?, image=? WHERE id=?",
+            (word_rus, word_eng, image_path, id)
+        )
+        self.connection.commit()

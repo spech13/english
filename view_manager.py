@@ -1,5 +1,6 @@
 from custom import Lable, Button, CustomCanvas, Location, Padding, Entry
 from requests import RequestException
+from screeninfo import get_monitors
 from db_manager import DBManager
 from PIL import Image, ImageTk
 from tkinter import Tk, Text
@@ -29,10 +30,17 @@ class View(DBManager, Location, Padding):
     
     def refresh_view(self):
         for item in self.form.children.values():
-            item.place(x=0, y=0)
             item.place(x=item.location_x, y=item.location_y)
         
         self.form.update()
+    
+    def place_by_center(self):
+        monitor = get_monitors()[0]
+        self.location_x = (monitor.width // 2) - (self.width // 2)
+        self.location_y = (monitor.height // 2) - (self.height // 2)
+
+        self.form.geometry(f"{self.width}x{self.height}+{self.location_x}+{self.location_y}")
+
 
 class SearchResultView(View):
     def __init__(self, table_name, text=""):
@@ -59,14 +67,14 @@ class DeleteView(View):
         search_id_button = Button(
             self.form,
             text="Search",
-            command=self.search_word
+            command=self.search_handler
         )
 
         delete_entity_entry = Entry(self.form, name="delete-id")
         delete_button = Button(
             self.form,
             text="Delete",
-            command=self.delete_word,
+            command=self.delete_handler,
         )
 
         items = [
@@ -93,11 +101,10 @@ class DeleteView(View):
         self.width = 2 * self.internal_padding_x + search_id_entry.width + search_id_button.width
         self.height = 2 * self.internal_padding_y + len(items) * (search_id_button.height + search_id_button.external_padding_y)
                                                              
-        self.form.geometry(f"{self.width}x{self.height}")
-
+        self.place_by_center()
         self.form.mainloop()
 
-    def search_word(self):
+    def search_handler(self):
         words = self.get_by_word(
             self.form.children["search-id"].get()
         )
@@ -107,10 +114,157 @@ class DeleteView(View):
             )
         )
     
-    def delete_word(self):
+    def delete_handler(self):
         self.delete(
             self.form.children["delete-id"].get()
         )
+
+class SearchUpdateView(View):
+    def __init__(self, table_name):
+        super().__init__(table_name)
+        self.form.title(f"Search update {table_name}")
+
+        search_id_entry = Entry(self.form, name="search-id")
+        search_id_button = Button(self.form, text="Search", command=self.search_handler)
+        update_id_entry = Entry(self.form, name="update-id")
+        update_id_button = Button(self.form, text="Update", command=self.update_handler)
+
+        items = ((search_id_entry, search_id_button), (update_id_entry, update_id_button))
+
+        for index, item in enumerate(items):
+            entry, button = item
+
+            entry.set_location(
+                self.internal_padding_x,
+                self.internal_padding_y + index * (button.height + button.external_padding_y) + ((button.height - entry.height) // 2),
+            )
+
+            button.set_location(
+                self.internal_padding_x + entry.width + entry.external_padding_x,
+                self.internal_padding_y + index * (button.height + button.external_padding_y),
+            )
+        
+        self.width = 2 * (self.internal_padding_x + update_id_button.external_padding_x) + update_id_entry.width + update_id_button.width
+        self.height = 2 * self.internal_padding_y + len(items) * (update_id_button.height + update_id_button.external_padding_y)
+
+        self.place_by_center()
+        self.form.mainloop()
+    
+    def search_handler(self):
+        words = self.get_by_word(
+            self.form.children["search-id"].get()
+        )
+
+        SearchResultView(self.table_name, "\n".join(
+            [f"{word[0]} : {word[1]} : {word[2]}" for word in words]
+            )
+        )
+
+    def update_handler(self):
+        UpdateView(self.table_name, self.form.children["update-id"].get())
+
+class UpdateView(View):
+    id = None
+    image_path = None
+
+    def __init__(self, table_name, id):
+        super().__init__(table_name)
+        self.form.title(f"Update {table_name}")
+
+        status_lable = Lable(self.form, text="Success!", name="status", foreground="green")
+        image_url_lable = Lable(self.form, text="Image URL:")
+        word_eng_lable = Lable(self.form, text="ENG:")
+        word_rus_lable = Lable(self.form, text="RUS:")
+
+        image_url_entry = Entry(self.form, name="image-url")
+        word_eng_entry = Entry(self.form, name="word-eng")
+        word_rus_entry = Entry(self.form, name="word-rus")
+
+        update_button = Button(self.form, text="Update", command=self.update_hadler)
+
+        word_rus, word_eng, image_path = self.get_by_id(id)[0]
+
+        self.id = id
+        self.image_path = image_path
+        word_eng_entry.insert("1", word_eng)
+        word_rus_entry.insert("1", word_rus)
+
+        self.refresh_view()
+
+        status_lable.set_location(
+            self.internal_padding_x + ((update_button.width - status_lable.width) // 2),
+            self.internal_padding_y,
+        )
+        status_lable.hidden()
+
+        items = ((image_url_lable, image_url_entry), (word_eng_lable, word_eng_entry), (word_rus_lable, word_rus_entry))
+
+        for index, item in enumerate(items):
+            lable, entry = item
+
+            lable.set_location(
+                self.internal_padding_x,
+                self.internal_padding_y + status_lable.location_y + status_lable.location_y + index * (lable.height + entry.height + lable.external_padding_y + entry.external_padding_y)
+            )
+
+            entry.set_location(
+                self.internal_padding_x + ((update_button.width - entry.width) // 2),
+                lable.location_y + lable.height + lable.external_padding_y
+            )
+        
+        update_button.set_location(
+            self.internal_padding_x,
+            self.internal_padding_y + word_rus_entry.location_y + word_rus_entry.height + word_rus_entry.external_padding_y,
+        )
+
+        self.width = 2 * self.internal_padding_x + update_button.width
+        self.height = 2 * self.internal_padding_y + update_button.location_y + update_button.height
+
+        self.place_by_center()
+        self.form.mainloop()
+    
+    def update_hadler(self):
+        status = self.form.children["status"]
+        image_url = self.form.children["image-url"].get()
+        image_path = ""
+
+        if image_url != "":
+            try:
+                response = requests.get(image_url, stream=True)
+            except RequestException:
+                status.configure(text="Error when download image!", foreground="red")
+                self.refresh_view()
+                status.set_location(
+                    self.internal_padding_x,
+                    self.internal_padding_y,
+                )
+                status.visible()
+
+            if response.status_code == 200:
+                image_path = f'images/{id}.png'
+                with open(image_path, 'wb') as out_file:
+                    shutil.copyfileobj(response.raw, out_file)
+                
+                if self.image_path and os.path.exists(self.image_path):
+                    os.remove(self.image_path)
+            else:
+                status.configure(text="Error when download image!", foreground="red")
+                self.refresh_view()
+                status.set_location(
+                    self.internal_padding_x,
+                    self.internal_padding_y,
+                )
+                status.visible()
+
+        self.update(
+            self.id,
+            self.form.children["word-rus"].get(),
+            self.form.children["word-eng"].get(),
+            image_path,
+        )
+        status.visible()
+
+
 
 class RepeatView(View):
     def __init__(self, table_name, word, image_path):
@@ -133,7 +287,7 @@ class RepeatView(View):
         word = Lable(self.form, text=word, name="word")
         failure = Lable(self.form, text="Failure!", name="failure", foreground="red") 
         translation = Entry(self.form, name="translation")
-        answer = Button(self.form, text="Answer", command=self.repeat)
+        answer = Button(self.form, text="Answer", command=self.repeat_handler)
         self.refresh_view()
         
         canvas.set_location(self.internal_padding_x, self.internal_padding_y)
@@ -162,12 +316,10 @@ class RepeatView(View):
         self.width = 2 * self.internal_padding_x + canvas.width
         self.height = 2 * self.internal_padding_y + answer.location_y + answer.height
 
-
-        self.form.geometry(f"{self.width}x{self.height}")
-
+        self.place_by_center()
         self.form.mainloop()
 
-    def repeat(self):
+    def repeat_handler(self):
         translation = self.form.children["translation"].get().lower()
         words = self.get_by_word(translation)
 
@@ -197,7 +349,7 @@ class AddView(View):
 
         word_rus_lable = Lable(self.form, text="RUS:")
         word_rus_entry = Entry(self.form, name="word-rus")
-        add_button = Button(self.form, text="Add", command=self.add, name="add-button")
+        add_button = Button(self.form, text="Add", command=self.add_handler, name="add-button")
         self.refresh_view()
 
         status.set_location(
@@ -244,8 +396,7 @@ class AddView(View):
         self.width = 2 * self.internal_padding_x + add_button.width
         self.height = 2 * self.internal_padding_y + add_button.location_y + add_button.height
 
-        self.form.geometry(f"{self.width}x{self.height}")
-
+        self.place_by_center()
         self.form.mainloop()
     
     def validate(self):
@@ -262,7 +413,7 @@ class AddView(View):
 
         return validate   
     
-    def add(self):
+    def add_handler(self):
         if not self.validate():
             return
         
@@ -313,9 +464,9 @@ class StudyView(View):
         super().__init__(table_name)
         self.form.title(f"Study {table_name}")
 
-        add_button = Button(self.form, text=f"Add {table_name}", command=self.add)
-        repeat_button = Button(self.form, text=f"Repeat {table_name}", command=self.repeat)
-        settings_button = Button(self.form, text=f"Settings {table_name}", command=self.settings)
+        add_button = Button(self.form, text=f"Add {table_name}", command=self.add_handler)
+        repeat_button = Button(self.form, text=f"Repeat {table_name}", command=self.repeat_handler)
+        settings_button = Button(self.form, text=f"Settings {table_name}", command=self.settings_handler)
 
         add_button.set_location(
             self.internal_padding_x,
@@ -335,21 +486,20 @@ class StudyView(View):
         self.width = 2 * self.internal_padding_x + settings_button.width
         self.height = 2 * self.internal_padding_y + settings_button.location_y + settings_button.height
 
-        self.form.geometry(f"{self.width}x{self.height}")
-
+        self.place_by_center()
         self.form.mainloop()
     
-    def add(self):
+    def add_handler(self):
         self.form.destroy()
         AddView(self.table_name)
     
-    def repeat(self):
+    def repeat_handler(self):
         self.form.destroy()
         words = self.get_all()
         random_row = randint(0, len(words)-1)
         RepeatView(self.table_name, words[random_row][2], f"images/{words[random_row][0]}.png")
     
-    def settings(self):
+    def settings_handler(self):
         self.form.destroy()
         SettingsView(self.table_name)
 
@@ -358,22 +508,31 @@ class SettingsView(View):
         super().__init__(table_name)
         self.form.title(f"Settings {table_name}")
 
-        delete_button = Button(self.form, text=f"Delete {table_name}", command=self.delete)
+        delete_button = Button(self.form, text=f"Delete {table_name}", command=self.delete_handler)
         delete_button.set_location(
             self.internal_padding_x,
             self.internal_padding_y,
         )
 
-        self.width = 2 * self.internal_padding_x + delete_button.width
-        self.height = 2 * self.internal_padding_y + delete_button.location_y + delete_button.height
+        update_button = Button(self.form, text=f"Update {table_name}", command=self.update_handler)
+        update_button.set_location(
+            self.internal_padding_x,
+            delete_button.location_y + delete_button.external_padding_y + update_button.height,
+        )
 
-        self.form.geometry(f"{self.width}x{self.height}")
+        self.width = 2 * self.internal_padding_x + update_button.width
+        self.height = update_button.location_y + update_button.height + update_button.external_padding_y
 
+        self.place_by_center()
         self.form.mainloop()
     
-    def delete(self):
+    def delete_handler(self):
         self.form.destroy()
         DeleteView(self.table_name)
+    
+    def update_handler(self):
+        self.form.destroy()
+        SearchUpdateView(self.table_name)
 
 class HomeView(View):
     def __init__(self):
@@ -381,9 +540,9 @@ class HomeView(View):
         self.form.resizable(False, False)
         self.form.title("Home")
 
-        noun_button = Button(self.form, text="Noun", command=self.noun)
-        adjective_button = Button(self.form, text="Adjective", command=self.adjective)
-        verb_button = Button(self.form, text="Verb", command=self.verb)
+        noun_button = Button(self.form, text="Noun", command=self.noun_handler)
+        adjective_button = Button(self.form, text="Adjective", command=self.adjective_handler)
+        verb_button = Button(self.form, text="Verb", command=self.verb_handler)
 
         noun_button.set_location(
             self.internal_padding_x,
@@ -403,19 +562,18 @@ class HomeView(View):
         self.width = 2 * self.internal_padding_x + verb_button.width
         self.height = 2 * self.internal_padding_y + verb_button.location_y + verb_button.height
 
-        self.form.geometry(f"{self.width}x{self.height}")
-
+        self.place_by_center()
         self.form.mainloop()
     
-    def noun(self):
+    def noun_handler(self):
         self.form.destroy()
         StudyView("Noun")
     
-    def adjective(self):
+    def adjective_handler(self):
         self.form.destroy()
         StudyView("Adjective")
     
-    def verb(self):
+    def verb_handler(self):
         self.form.destroy()
         StudyView("Verb")
 
