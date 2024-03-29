@@ -1,4 +1,5 @@
 from custom import Lable, Button, CustomCanvas, Location, Padding, Entry
+from requests import RequestException
 from db_manager import DBManager
 from PIL import Image, ImageTk
 from tkinter import Tk, Text
@@ -28,7 +29,8 @@ class View(DBManager, Location, Padding):
     
     def refresh_view(self):
         for item in self.form.children.values():
-            item.place(x=self.location_x, y=self.location_y)
+            item.place(x=0, y=0)
+            item.place(x=item.location_x, y=item.location_y)
         
         self.form.update()
 
@@ -185,7 +187,7 @@ class AddView(View):
         super().__init__(table_name)
         self.form.title(f"Add {table_name}")
 
-        failure = Lable(self.form, text="RUS and ENG must not be empty", name="failure", foreground="red")
+        status = Lable(self.form, text="RUS and ENG must not be empty", name="status", foreground="red")
 
         image_url_lable = Lable(self.form, text="Image URL:")
         image_url_entry = Entry(self.form, name="image-url")
@@ -195,18 +197,18 @@ class AddView(View):
 
         word_rus_lable = Lable(self.form, text="RUS:")
         word_rus_entry = Entry(self.form, name="word-rus")
-        add_button = Button(self.form, text="Add", command=self.add)
+        add_button = Button(self.form, text="Add", command=self.add, name="add-button")
         self.refresh_view()
 
-        failure.set_location(
+        status.set_location(
             self.internal_padding_x,
             self.internal_padding_y,
         )
-        failure.hidden()
+        status.hidden()
 
         image_url_lable.set_location(
             self.internal_padding_x,
-            failure.location_x + failure.height + failure.external_padding_y,
+            status.location_x + status.height + status.external_padding_y,
         )
 
         image_url_entry.set_location(
@@ -256,7 +258,7 @@ class AddView(View):
             validate = False
         
         if not validate:
-            self.form.children["failure"].visible()
+            self.form.children["status"].visible()
 
         return validate   
     
@@ -264,18 +266,28 @@ class AddView(View):
         if not self.validate():
             return
         
-        self.form.children["failure"].hidden()
+        status = self.form.children["status"]
+        status.hidden()
 
         id = str(uuid4())
         image_url = self.form.children["image-url"].get()
         image_path = DEFAULT_IMAGE_PATH
 
         if image_url != "":
-            response = requests.get(image_url, stream=True)
+            try:
+                response = requests.get(image_url, stream=True)
+            except RequestException:
+                status.configure(text="Error when download image!")
+                status.visible()
+                return
+
             if response.status_code == 200:
                 image_path = f'images/{id}.png'
                 with open(image_path, 'wb') as out_file:
                     shutil.copyfileobj(response.raw, out_file)
+            else:
+                status.configure(text="Error when download image!")
+                status.visible()
 
         self.insert(
             id,
@@ -283,6 +295,18 @@ class AddView(View):
             self.form.children["word-eng"].get(),
             image_path,
         )
+
+        status.configure(text="Success!", foreground="green")
+        self.refresh_view()
+
+        status.set_location(
+            self.internal_padding_x + ((self.form.children["add-button"].width - status.width) // 2),
+            self.internal_padding_y,
+        )
+        status.visible()
+        print(self.form.children["add-button"].width)
+        print(status.width)
+        
 
 class StudyView(View):
     def __init__(self, table_name):

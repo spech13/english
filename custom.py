@@ -35,7 +35,7 @@ class Button(ttk.Button, Location, Padding):
 
 class Entry(ttk.Entry, Location, Padding):
     width = 150
-    height = 20
+    height = 25
     external_padding_x = 10
     external_padding_y = 5
 
