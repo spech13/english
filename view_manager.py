@@ -498,9 +498,6 @@ class AddView(View):
             self.internal_padding_y,
         )
         status.visible()
-        print(self.form.children["add-button"].width)
-        print(status.width)
-        
 
 class StudyView(View):
     def __init__(self, table_name):
