@@ -40,9 +40,13 @@ class View(DBManager, Location, Padding):
         self.location_y = (monitor.height // 2) - (self.height // 2)
 
         self.form.geometry(f"{self.width}x{self.height}+{self.location_x}+{self.location_y}")
+    
+    def comeback_handler(self):
+        self.form.destroy()
+        HomeView()
 
 
-class SearchResultView(View):
+class SearchView(View):
     def __init__(self, table_name, text=""):
         super().__init__(table_name)
 
@@ -71,11 +75,8 @@ class DeleteView(View):
         )
 
         delete_entity_entry = Entry(self.form, name="delete-id")
-        delete_button = Button(
-            self.form,
-            text="Delete",
-            command=self.delete_handler,
-        )
+        delete_button = Button(self.form, text="Delete", command=self.delete_handler)
+        comeback_button = Button(self.form, text="Comeback", command=self.comeback_handler)
 
         items = [
             (search_id_entry, search_id_button),
@@ -97,9 +98,14 @@ class DeleteView(View):
                 self.internal_padding_x + entry.width + entry.external_padding_x,
                 self.internal_padding_y + index * (button.height + button.external_padding_y)
             )
+        
+        comeback_button.set_location(
+            self.internal_padding_x + ((delete_entity_entry.width + delete_button.width - comeback_button.width) // 2),
+            delete_button.location_y + delete_button.height + delete_button.external_padding_y,
+        )
 
         self.width = 2 * self.internal_padding_x + search_id_entry.width + search_id_button.width
-        self.height = 2 * self.internal_padding_y + len(items) * (search_id_button.height + search_id_button.external_padding_y)
+        self.height = comeback_button.location_y + comeback_button.height + self.internal_padding_y
                                                              
         self.place_by_center()
         self.form.mainloop()
@@ -109,7 +115,7 @@ class DeleteView(View):
             self.form.children["search-id"].get()
         )
 
-        SearchResultView(self.table_name, "\n".join(
+        SearchView(self.table_name, "\n".join(
             [f"{word[0]} : {word[1]} : {word[2]}" for word in words]
             )
         )
@@ -128,6 +134,7 @@ class SearchUpdateView(View):
         search_id_button = Button(self.form, text="Search", command=self.search_handler)
         update_id_entry = Entry(self.form, name="update-id")
         update_id_button = Button(self.form, text="Update", command=self.update_handler)
+        comeback_button = Button(self.form, text="Comeback", command=self.comeback_handler)
 
         items = ((search_id_entry, search_id_button), (update_id_entry, update_id_button))
 
@@ -144,8 +151,13 @@ class SearchUpdateView(View):
                 self.internal_padding_y + index * (button.height + button.external_padding_y),
             )
         
+        comeback_button.set_location(
+            self.internal_padding_x + ((update_id_entry.width + update_id_button.width - comeback_button.width) // 2),
+            update_id_button.location_y + update_id_button.height + update_id_button.external_padding_y,
+        )
+        
         self.width = 2 * (self.internal_padding_x + update_id_button.external_padding_x) + update_id_entry.width + update_id_button.width
-        self.height = 2 * self.internal_padding_y + len(items) * (update_id_button.height + update_id_button.external_padding_y)
+        self.height = comeback_button.location_y + comeback_button.height + self.internal_padding_y
 
         self.place_by_center()
         self.form.mainloop()
@@ -155,7 +167,7 @@ class SearchUpdateView(View):
             self.form.children["search-id"].get()
         )
 
-        SearchResultView(self.table_name, "\n".join(
+        SearchView(self.table_name, "\n".join(
             [f"{word[0]} : {word[1]} : {word[2]}" for word in words]
             )
         )
@@ -218,7 +230,7 @@ class UpdateView(View):
         )
 
         self.width = 2 * self.internal_padding_x + update_button.width
-        self.height = 2 * self.internal_padding_y + update_button.location_y + update_button.height
+        self.height = update_button.location_y + update_button.height + self.internal_padding_y
 
         self.place_by_center()
         self.form.mainloop()
@@ -241,12 +253,12 @@ class UpdateView(View):
                 status.visible()
 
             if response.status_code == 200:
-                image_path = f'images/{id}.png'
-                with open(image_path, 'wb') as out_file:
-                    shutil.copyfileobj(response.raw, out_file)
-                
                 if self.image_path and os.path.exists(self.image_path):
                     os.remove(self.image_path)
+                     
+                image_path = f'images/{self.id}.png'
+                with open(image_path, 'wb') as out_file:
+                    shutil.copyfileobj(response.raw, out_file)
             else:
                 status.configure(text="Error when download image!", foreground="red")
                 self.refresh_view()
@@ -284,37 +296,44 @@ class RepeatView(View):
 
         canvas.create_image(0, 0, anchor="nw", image=photo)
 
-        word = Lable(self.form, text=word, name="word")
-        failure = Lable(self.form, text="Failure!", name="failure", foreground="red") 
-        translation = Entry(self.form, name="translation")
-        answer = Button(self.form, text="Answer", command=self.repeat_handler)
+        word_lable = Lable(self.form, text=word, name="word")
+        status_lable = Lable(self.form, text="Failure!", name="status", foreground="red") 
+        translation_entry = Entry(self.form, name="translation")
+        answer_button = Button(self.form, text="Answer", command=self.repeat_handler)
+        comeback_button = Button(self.form, text="Comeback", command=self.comeback_handler)
+
         self.refresh_view()
         
         canvas.set_location(self.internal_padding_x, self.internal_padding_y)
 
-        word.set_location(
-            self.internal_padding_x + ((canvas.width - word.width) // 2),
+        word_lable.set_location(
+            self.internal_padding_x + ((canvas.width - word_lable.width) // 2),
             canvas.location_y + canvas.height + canvas.external_padding_y
         )
 
-        failure.set_location(
-            self.internal_padding_x + ((canvas.width - failure.width) // 2),
-            word.location_y + word.height + word.external_padding_y,
+        status_lable.set_location(
+            self.internal_padding_x + ((canvas.width - status_lable.width) // 2),
+            word_lable.location_y + word_lable.height + word_lable.external_padding_y,
         )
 
-        translation.set_location(
-            self.internal_padding_x + ((canvas.width - translation.width) // 2),
-            failure.location_y + failure.height + failure.external_padding_y
+        translation_entry.set_location(
+            self.internal_padding_x + ((canvas.width - translation_entry.width) // 2),
+            status_lable.location_y + status_lable.height + status_lable.external_padding_y
         )
-        failure.hidden()
+        status_lable.hidden()
 
-        answer.set_location(
-            self.internal_padding_x + ((canvas.width - answer.width) // 2),
-            translation.location_y + translation.height + translation.external_padding_y
+        answer_button.set_location(
+            self.internal_padding_x + ((canvas.width - answer_button.width) // 2),
+            translation_entry.location_y + translation_entry.height + translation_entry.external_padding_y
+        )
+
+        comeback_button.set_location(
+            self.internal_padding_x + ((canvas.width - comeback_button.width) // 2),
+            answer_button.location_y + answer_button.height + answer_button.external_padding_y,
         )
 
         self.width = 2 * self.internal_padding_x + canvas.width
-        self.height = 2 * self.internal_padding_y + answer.location_y + answer.height
+        self.height = comeback_button.location_y + comeback_button.height + self.internal_padding_y
 
         self.place_by_center()
         self.form.mainloop()
@@ -323,10 +342,10 @@ class RepeatView(View):
         translation = self.form.children["translation"].get().lower()
         words = self.get_by_word(translation)
 
-        failure = self.form.children["failure"]
+        status = self.form.children["status"]
 
         if translation not in [word[1].lower() for word in words]:
-            failure.visible()
+            status.visible()
             return
         
         self.form.destroy()
@@ -350,6 +369,8 @@ class AddView(View):
         word_rus_lable = Lable(self.form, text="RUS:")
         word_rus_entry = Entry(self.form, name="word-rus")
         add_button = Button(self.form, text="Add", command=self.add_handler, name="add-button")
+        comeback_button = Button(self.form, text="Comeback", command=self.comeback_handler)
+
         self.refresh_view()
 
         status.set_location(
@@ -393,8 +414,13 @@ class AddView(View):
             word_rus_entry.location_y + word_rus_entry.height + word_rus_entry.external_padding_y
         )
 
+        comeback_button.set_location(
+            self.internal_padding_x,
+            add_button.location_y + add_button.height + add_button.external_padding_y,
+        )
+
         self.width = 2 * self.internal_padding_x + add_button.width
-        self.height = 2 * self.internal_padding_y + add_button.location_y + add_button.height
+        self.height = comeback_button.location_y + comeback_button.height + self.internal_padding_y
 
         self.place_by_center()
         self.form.mainloop()
@@ -465,8 +491,10 @@ class StudyView(View):
         self.form.title(f"Study {table_name}")
 
         add_button = Button(self.form, text=f"Add {table_name}", command=self.add_handler)
-        repeat_button = Button(self.form, text=f"Repeat {table_name}", command=self.repeat_handler)
-        settings_button = Button(self.form, text=f"Settings {table_name}", command=self.settings_handler)
+
+        data = self.get_all()
+        repeat_button = Button(self.form, text=f"Repeat {table_name}", command=self.repeat_handler, state="enabled" if data else "disabled")
+        settings_button = Button(self.form, text=f"Settings {table_name}", command=self.settings_handler, state="enabled" if data else "disabled")
 
         add_button.set_location(
             self.internal_padding_x,
@@ -484,7 +512,7 @@ class StudyView(View):
         )
 
         self.width = 2 * self.internal_padding_x + settings_button.width
-        self.height = 2 * self.internal_padding_y + settings_button.location_y + settings_button.height
+        self.height = settings_button.location_y + settings_button.height + self.internal_padding_y
 
         self.place_by_center()
         self.form.mainloop()
@@ -521,7 +549,7 @@ class SettingsView(View):
         )
 
         self.width = 2 * self.internal_padding_x + update_button.width
-        self.height = update_button.location_y + update_button.height + update_button.external_padding_y
+        self.height = update_button.location_y + update_button.height + self.internal_padding_y
 
         self.place_by_center()
         self.form.mainloop()
@@ -560,7 +588,7 @@ class HomeView(View):
         )
 
         self.width = 2 * self.internal_padding_x + verb_button.width
-        self.height = 2 * self.internal_padding_y + verb_button.location_y + verb_button.height
+        self.height = verb_button.location_y + verb_button.height + self.internal_padding_y
 
         self.place_by_center()
         self.form.mainloop()
