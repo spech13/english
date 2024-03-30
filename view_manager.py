@@ -41,7 +41,7 @@ class View(DBManager, Location, Padding):
 
         self.form.geometry(f"{self.width}x{self.height}+{self.location_x}+{self.location_y}")
     
-    def comeback_handler(self):
+    def comeback_handler(self, event=None):
         self.form.destroy()
         HomeView()
 
@@ -68,15 +68,15 @@ class DeleteView(View):
         self.form.title(f"Delete {table_name} entity")
 
         search_id_entry = Entry(self.form, name="search-id")
-        search_id_button = Button(
-            self.form,
-            text="Search",
-            command=self.search_handler
-        )
-
+        search_id_button = Button(self.form, text="Search", command=self.search_handler)
         delete_entity_entry = Entry(self.form, name="delete-id")
         delete_button = Button(self.form, text="Delete", command=self.delete_handler)
         comeback_button = Button(self.form, text="Comeback", command=self.comeback_handler)
+
+        search_id_entry.focus_force()
+        search_id_button.bind('<Return>', self.search_handler)
+        delete_button.bind('<Return>', self.delete_handler)
+        comeback_button.bind('<Return>', self.comeback_handler)
 
         items = [
             (search_id_entry, search_id_button),
@@ -110,7 +110,7 @@ class DeleteView(View):
         self.place_by_center()
         self.form.mainloop()
 
-    def search_handler(self):
+    def search_handler(self, event=None):
         words = self.get_by_word(
             self.form.children["search-id"].get()
         )
@@ -120,7 +120,7 @@ class DeleteView(View):
             )
         )
     
-    def delete_handler(self):
+    def delete_handler(self, event=None):
         self.delete(
             self.form.children["delete-id"].get()
         )
@@ -135,6 +135,11 @@ class SearchUpdateView(View):
         update_id_entry = Entry(self.form, name="update-id")
         update_id_button = Button(self.form, text="Update", command=self.update_handler)
         comeback_button = Button(self.form, text="Comeback", command=self.comeback_handler)
+
+        search_id_entry.focus_force()
+        search_id_button.bind('<Return>', self.search_handler)
+        update_id_button.bind('<Return>', self.update_handler)
+        comeback_button.bind('<Return>', self.comeback_handler)
 
         items = ((search_id_entry, search_id_button), (update_id_entry, update_id_button))
 
@@ -162,7 +167,7 @@ class SearchUpdateView(View):
         self.place_by_center()
         self.form.mainloop()
     
-    def search_handler(self):
+    def search_handler(self, event=None):
         words = self.get_by_word(
             self.form.children["search-id"].get()
         )
@@ -172,7 +177,7 @@ class SearchUpdateView(View):
             )
         )
 
-    def update_handler(self):
+    def update_handler(self, event=None):
         UpdateView(self.table_name, self.form.children["update-id"].get())
 
 class UpdateView(View):
@@ -193,6 +198,8 @@ class UpdateView(View):
         word_rus_entry = Entry(self.form, name="word-rus")
 
         update_button = Button(self.form, text="Update", command=self.update_hadler)
+
+        update_button.bind('<Return>', self.update_hadler)
 
         word_rus, word_eng, image_path = self.get_by_id(id)[0]
 
@@ -235,7 +242,7 @@ class UpdateView(View):
         self.place_by_center()
         self.form.mainloop()
     
-    def update_hadler(self):
+    def update_hadler(self, event=None):
         status = self.form.children["status"]
         image_url = self.form.children["image-url"].get()
         image_path = ""
@@ -304,6 +311,10 @@ class RepeatView(View):
         answer_button = Button(self.form, text="Answer", command=self.repeat_handler)
         comeback_button = Button(self.form, text="Comeback", command=self.comeback_handler)
 
+        translation_entry.focus_force()
+        answer_button.bind('<Return>', self.repeat_handler)
+        comeback_button.bind('<Return>', self.comeback_handler)
+
         self.refresh_view()
         
         canvas.set_location(self.internal_padding_x, self.internal_padding_y)
@@ -340,20 +351,20 @@ class RepeatView(View):
         self.place_by_center()
         self.form.mainloop()
 
-    def repeat_handler(self):
+    def repeat_handler(self, event=None):
         translation = self.form.children["translation"].get().lower()
         words = self.get_by_word(translation)
 
         status = self.form.children["status"]
 
-        if translation not in [word[1].lower() for word in words]:
+        if translation not in [word[2].lower() for word in words]:
             status.visible()
             return
         
         self.form.destroy()
         words = self.get_all()
         random_row = randint(0, len(words)-1)
-        RepeatView(self.table_name, words[random_row][2], f"images/{words[random_row][0]}.png")
+        RepeatView(self.table_name, words[random_row][1], f"images/{words[random_row][0]}.png")
 
 class AddView(View):
     def __init__(self, table_name):
@@ -372,6 +383,9 @@ class AddView(View):
         word_rus_entry = Entry(self.form, name="word-rus")
         add_button = Button(self.form, text="Add", command=self.add_handler, name="add-button")
         comeback_button = Button(self.form, text="Comeback", command=self.comeback_handler)
+
+        add_button.bind('<Return>', self.add_handler)
+        comeback_button.bind('<Return>', self.comeback_handler)
 
         self.refresh_view()
 
@@ -441,7 +455,7 @@ class AddView(View):
 
         return validate   
     
-    def add_handler(self):
+    def add_handler(self, event=None):
         if not self.validate():
             return
         
@@ -496,8 +510,24 @@ class StudyView(View):
         add_button = Button(self.form, text=f"Add {table_name}", command=self.add_handler)
 
         data = self.get_all()
-        repeat_button = Button(self.form, text=f"Repeat {table_name}", command=self.repeat_handler, state="enabled" if data else "disabled")
-        settings_button = Button(self.form, text=f"Settings {table_name}", command=self.settings_handler, state="enabled" if data else "disabled")
+
+        repeat_button = Button(
+            self.form,
+            text=f"Repeat {table_name}",
+            command=self.repeat_handler,
+            state="enabled" if data else "disabled"
+        )
+        settings_button = Button(
+            self.form,
+            text=f"Settings {table_name}",
+            command=self.settings_handler,
+            state="enabled" if data else "disabled"
+        )
+
+        add_button.focus_force()
+        add_button.bind('<Return>', self.add_handler)
+        repeat_button.bind('<Return>', self.repeat_handler)
+        settings_button.bind('<Return>', self.settings_handler)
 
         add_button.set_location(
             self.internal_padding_x,
@@ -520,17 +550,17 @@ class StudyView(View):
         self.place_by_center()
         self.form.mainloop()
     
-    def add_handler(self):
+    def add_handler(self, event=None):
         self.form.destroy()
         AddView(self.table_name)
     
-    def repeat_handler(self):
+    def repeat_handler(self, event=None):
         self.form.destroy()
         words = self.get_all()
         random_row = randint(0, len(words)-1)
-        RepeatView(self.table_name, words[random_row][2], f"images/{words[random_row][0]}.png")
+        RepeatView(self.table_name, words[random_row][1], f"images/{words[random_row][0]}.png")
     
-    def settings_handler(self):
+    def settings_handler(self, event=None):
         self.form.destroy()
         SettingsView(self.table_name)
 
@@ -551,17 +581,20 @@ class SettingsView(View):
             delete_button.location_y + delete_button.external_padding_y + update_button.height,
         )
 
+        delete_button.bind('<Return>', self.delete_handler)
+        update_button.bind('<Return>', self.update_handler)
+
         self.width = 2 * self.internal_padding_x + update_button.width
         self.height = update_button.location_y + update_button.height + self.internal_padding_y
 
         self.place_by_center()
         self.form.mainloop()
     
-    def delete_handler(self):
+    def delete_handler(self, event=None):
         self.form.destroy()
         DeleteView(self.table_name)
     
-    def update_handler(self):
+    def update_handler(self, event=None):
         self.form.destroy()
         SearchUpdateView(self.table_name)
 
@@ -590,21 +623,26 @@ class HomeView(View):
             adjective_button.location_y + adjective_button.height + adjective_button.external_padding_y,
         )
 
+        noun_button.focus_force()
+        noun_button.bind('<Return>', self.noun_handler)
+        adjective_button.bind('<Return>', self.adjective_handler)
+        verb_button.bind('<Return>', self.verb_handler)
+
         self.width = 2 * self.internal_padding_x + verb_button.width
         self.height = verb_button.location_y + verb_button.height + self.internal_padding_y
 
         self.place_by_center()
         self.form.mainloop()
     
-    def noun_handler(self):
+    def noun_handler(self, event=None):
         self.form.destroy()
         StudyView("Noun")
     
-    def adjective_handler(self):
+    def adjective_handler(self, event=None):
         self.form.destroy()
         StudyView("Adjective")
     
-    def verb_handler(self):
+    def verb_handler(self, event=None):
         self.form.destroy()
         StudyView("Verb")
 
