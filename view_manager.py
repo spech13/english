@@ -251,6 +251,7 @@ class UpdateView(View):
                     self.internal_padding_y,
                 )
                 status.visible()
+                return
 
             if response.status_code == 200:
                 if self.image_path and os.path.exists(self.image_path):
@@ -267,6 +268,7 @@ class UpdateView(View):
                     self.internal_padding_y,
                 )
                 status.visible()
+                return
 
         self.update(
             self.id,
@@ -465,6 +467,7 @@ class AddView(View):
             else:
                 status.configure(text="Error when download image!")
                 status.visible()
+                return
 
         self.insert(
             id,
